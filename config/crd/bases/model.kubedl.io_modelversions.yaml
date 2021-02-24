@@ -1,0 +1,95 @@
+
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.4.1
+  creationTimestamp: null
+  name: modelversions.model.kubedl.io
+spec:
+  group: model.kubedl.io
+  names:
+    kind: ModelVersion
+    listKind: ModelVersionList
+    plural: modelversions
+    singular: modelversion
+  scope: Namespaced
+  versions:
+  - name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: ModelVersion is the Schema for the modelversions API
+        properties:
+          apiVersion:
+            description: 'APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            type: string
+          kind:
+            description: 'Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: ModelVersionSpec defines the desired state of ModelVersion
+            properties:
+              createdBy:
+                description: CreatedBy indicates who create the model, e.g. the tfjob that generates the model, then the CreatedBy is the name of the tfjob.
+                type: string
+              modelName:
+                description: The parent model name for the version
+                type: string
+              storage:
+                description: Storage is the location where this version of the model is stored. This is set when the location for this model version is different from the parent model
+                properties:
+                  aliCloudNas:
+                    properties:
+                      attributes:
+                        additionalProperties:
+                          type: string
+                        type: object
+                      path:
+                        description: The path under which the model is stored, e.g. /models/my_model1
+                        type: string
+                      server:
+                        description: Nas server address
+                        type: string
+                      vers:
+                        type: string
+                    type: object
+                  localStorage:
+                    properties:
+                      nodeName:
+                        description: The node for storing the model. This node will be where the chief worker run to output the model. If not set, the model can be stored on any node.
+                        type: string
+                      path:
+                        description: The local path on the host
+                        type: string
+                    type: object
+                type: object
+            type: object
+          status:
+            description: ModelVersionStatus defines the observed state of ModelVersion
+            properties:
+              finishTime:
+                description: FinishTime is the time when image building is finished (succeeded or failed)
+                format: date-time
+                type: string
+              image:
+                description: The image name of the version
+                type: string
+              imageBuildPhase:
+                description: ImageBuildPhase is the phase of the image building process
+                type: string
+              message:
+                description: Any message associated with the building process
+                type: string
+            type: object
+        type: object
+    served: true
+    storage: true
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []
