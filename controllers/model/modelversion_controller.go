@@ -102,7 +102,7 @@ func (r *ModelVersionReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error
 		// Does the pv for the model version already exist
 		pvName := ""
 		if modelVersion.Spec.Storage.LocalStorage != nil {
-			// append the nodeName
+			//  append the nodeName
 			if modelVersion.Spec.Storage.LocalStorage.NodeName != "" {
 				pvName = GetModelVersionPVName(modelVersion.Name) + "-" + modelVersion.Spec.Storage.LocalStorage.NodeName
 			} else if model.Spec.Storage.LocalStorage.NodeName != "" {
@@ -138,7 +138,7 @@ func (r *ModelVersionReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error
 			return reconcile.Result{}, err
 		}
 
-		// Does the pvc for the model already exist
+		// Does the pvc for the version already exist
 		err = r.Get(context.Background(), types.NamespacedName{Namespace: model.Namespace, Name: pvName}, pvc)
 		if err != nil {
 			if errors.IsNotFound(err) {
@@ -201,9 +201,17 @@ func (r *ModelVersionReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error
 			if err != nil {
 				return ctrl.Result{}, err
 			}
-			modelVersion.Labels["kubedl.io/model-name"] = model.Name
-			modelVersion.Annotations["kubedl.io/img-build-pod-name"] = imgBuildPodName
+			if modelVersion.Labels == nil {
+				modelVersion.Labels = make(map[string]string,1)
+			}
+			modelVersion.Labels["model.kubedl.io/model-name"] = model.Name
+			if modelVersion.Annotations == nil {
+				modelVersion.Annotations = make(map[string]string,1)
+			}
+			modelVersion.Annotations["model.kubedl.io/img-build-pod-name"] = imgBuildPodName
 			modelVersion.Status = *modelVersionStatus
+			// update model version
+			err = r.Status().Update(context.Background(), modelVersion)
 
 			// update parent model latest version info
 			model.Status.LatestVersion = &modelv1alpha1.VersionInfo{
@@ -211,7 +219,7 @@ func (r *ModelVersionReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error
 				ImageName:    modelVersionStatus.Image,
 			}
 			err = r.Status().Update(context.Background(), model)
-			return ctrl.Result{}, err
+			return ctrl.Result{RequeueAfter: 2}, err
 		} else {
 			return ctrl.Result{}, err
 		}
@@ -227,9 +235,10 @@ func (r *ModelVersionReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error
 		modelVersionStatus.FinishTime = &currentTime
 		modelVersionStatus.Message = fmt.Sprintf("Image build failed.")
 	} else {
-		return ctrl.Result{Requeue: true}, nil
+		// image not ready
+		return ctrl.Result{RequeueAfter: 1}, nil
 	}
-
+	// image ready
 	err = r.Status().Update(context.Background(), modelVersion)
 	return ctrl.Result{}, err
 }
@@ -260,15 +269,15 @@ func createImgBuildPod(model *modelv1alpha1.ModelVersion, pvc *v1.PersistentVolu
 	}
 	var volumeMounts = []v1.VolumeMount{
 		{
-			Name:      "kaniko-secret",
+			Name:      "kaniko-secret", // the docker secret for pushing images
 			MountPath: "/kaniko/.docker",
 		},
 		{
-			Name:      "build-source",
+			Name:      "build-source", // build-source references the pvc for the model
 			MountPath: "/workspace/build",
 		},
 		{
-			Name:      "dockerfile",
+			Name:      "dockerfile", // dockerfile is the default Dockerfile for building the image including the model
 			MountPath: "/workspace/build",
 		},
 	}
